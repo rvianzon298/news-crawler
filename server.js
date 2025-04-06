@@ -2,9 +2,12 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.get('/news', async (req, res) => {
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
   const page = await browser.newPage();
   await page.goto('https://news.ycombinator.com/', { waitUntil: 'networkidle2' });
 
@@ -22,4 +25,4 @@ app.get('/news', async (req, res) => {
   res.json(articles.slice(0, 10));
 });
 
-app.listen(3000, () => console.log('🚀 News API running on http://localhost:3000/news'));
+app.listen(PORT, () => console.log(`🚀 News API running on port ${PORT}`));
