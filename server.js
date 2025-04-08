@@ -7,7 +7,7 @@ const path = require("path");
 const { HfInference } = require("@huggingface/inference");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const hf = new HfInference(process.env.HUGGINGFACE_TOKEN);
 const CACHE_DIR = "./cache";
 const CACHE_TTL = 3600 * 1000; // 1 hour
@@ -132,4 +132,8 @@ app.get("/crawl_news", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`📰 Crawler API running at http://localhost:${PORT}/crawl_news?brand=YourFranchise`);
+});
+
+app.get("/", (req, res) => {
+  res.send("✅ News Crawler is running");
 });
