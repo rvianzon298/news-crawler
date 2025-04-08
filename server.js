@@ -5,6 +5,7 @@ const cheerio = require("cheerio");
 const fs = require("fs");
 const path = require("path");
 const { HfInference } = require("@huggingface/inference");
+const cors = require("cors");  // Import the CORS package
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,7 +43,7 @@ async function searchGoogleNews(query) {
 
   const url = `https://www.google.com/search?q=${encodeURIComponent(query)}+news&tbm=nws&lr=lang_en&cr=countryPH`;
   const headers = { "User-Agent": "Mozilla/5.0" };
-  
+
   const res = await axios.get(url, { headers });
   const $ = cheerio.load(res.data);
   const rawLinks = [];
@@ -147,6 +148,9 @@ async function checkRelevanceBatch(texts) {
     return Array(texts.length).fill("Error: Unable to check relevance");
   }
 }
+
+// Enable CORS for all origins
+app.use(cors());  // This will allow requests from any domain
 
 // API endpoint
 app.get("/crawl_news", async (req, res) => {
