@@ -141,7 +141,7 @@ async function checkRelevanceBatch(texts) {
   try {
     const response = await axios.post(apiUrl, payload, { headers });
     return response.data.map(({ labels, scores }) => 
-      labels[0] === "unrelated" || scores[0] <= 0.4 ? "No, it is not relevant" : "Yes, it is relevant"
+      labels[0] === "unrelated" || scores[0] <= 0.25 ? "No, it is not relevant" : "Yes, it is relevant"
     );
   } catch (error) {
     console.error("Error checking relevance:", error.response?.data || error.message);
