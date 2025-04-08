@@ -122,9 +122,6 @@ async function scrapeArticle(url) {
   }
 }
 
-
-
-
 // Check relevance in batch
 async function checkRelevanceBatch(texts) {
   const apiUrl = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli";
@@ -136,8 +133,8 @@ async function checkRelevanceBatch(texts) {
   };
 
   const headers = {
-    Authorization: `Bearer ${process.env.HUGGINGFACE_TOKEN}`,
-    "Content-Type": "application/json"
+    Authorization: `Bearer ${process.env.HUGGINGFACE_TOKEN}`,  // Hugging Face Token for authentication
+    "Content-Type": "application/json"  // Content type for JSON payload
   };
 
   try {
