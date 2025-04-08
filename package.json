@@ -1,0 +1,23 @@
+{
+  "name": "news-crawler-using-node",
+  "version": "1.0.0",
+  "description": "A news scraper using Puppeteer and Express",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@huggingface/inference": "^3.7.0",
+    "axios": "^1.8.4",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "news-crawler-using-node": "file:",
+    "puppeteer": "^24.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
