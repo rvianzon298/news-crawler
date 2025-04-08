@@ -88,17 +88,39 @@ async function scrapeArticle(url) {
 
 // --- Relevance classification ---
 async function checkRelevance(text, brand) {
-  const result = await hf.zeroShotClassification({
-    model: "facebook/bart-large-mnli",
-    inputs: text,
-    parameters: {
-      candidate_labels: [brand],
-    },
+  const apiUrl = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli";
+  const headers = {
+    "Authorization": "Bearer " + process.env.HUGGINGFACE_TOKEN, // Access token from .env file
+    "Content-Type": "application/json"
+  };
+
+  const data = JSON.stringify({
+    "inputs": text,
+    "parameters": {
+      "candidate_labels": ["business", "finance", "economy", "earnings", "stock", "unrelated"]
+    }
   });
 
-  const score = result.scores?.[0] || 0;
-  return score >= 0.5 ? "Yes, it is relevant" : "No, it is not relevant";
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: headers,
+      body: data
+    });
+
+    const result = await response.json();
+
+    // If the highest confidence score is related to business topics, return "relevant"
+    return (result.scores && result.scores[0] > 0.4 && 
+            ["business", "finance", "economy", "earnings", "stock"].includes(result.labels[0])) 
+            ? "Yes, it is relevant" : "No, it is not relevant";
+  } catch (error) {
+    console.error("Error checking relevance:", error);
+    return "Error: Unable to check relevance";
+  }
 }
+
+
 
 // --- API endpoint ---
 app.get("/crawl_news", async (req, res) => {
