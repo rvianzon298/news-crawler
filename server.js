@@ -10,7 +10,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const hf = new HfInference(process.env.HUGGINGFACE_TOKEN);
 const CACHE_DIR = "./cache";
-const CACHE_TTL = 3600 * 1000; // 1 hour
+const CACHE_TTL = 60 * 1000; // 1 minute
+
 
 // Ensure cache dir
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR);
@@ -71,11 +72,12 @@ async function scrapeArticle(url) {
     });
     const $ = cheerio.load(res.data);
 
-    const title = $("title").text() || "";
+    const title = $("title").text().trim() || "";
     const paragraphs = $("p")
-      .map((_, el) => $(el).text())
+      .map((_, el) => $(el).text().trim())
       .get()
       .join(" ")
+      .replace(/\s+/g, " ") // replaces multiple whitespace (including \n) with a single space
       .slice(0, 500);
 
     if (!title || !paragraphs) return null;
@@ -86,43 +88,36 @@ async function scrapeArticle(url) {
   }
 }
 
+
 // --- Relevance classification ---
-async function checkRelevance(text, brand) {
+// --- Relevance classification (Batch version) ---
+async function checkRelevanceBatch(texts) {
   const apiUrl = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli";
+  const payload = {
+    inputs: texts,
+    parameters: {
+      candidate_labels: ["business", "finance", "economy", "earnings", "stock", "unrelated"]
+    }
+  };
+
   const headers = {
-    "Authorization": "Bearer " + process.env.HUGGINGFACE_TOKEN, // Access token from .env file
+    Authorization: `Bearer ${process.env.HUGGINGFACE_TOKEN}`,
     "Content-Type": "application/json"
   };
 
-  const data = JSON.stringify({
-    "inputs": text,
-    "parameters": {
-      "candidate_labels": ["business", "finance", "economy", "earnings", "stock", "unrelated"]
-    }
-  });
-
   try {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: headers,
-      body: data
-    });
+    const response = await axios.post(apiUrl, payload, { headers });
 
-    const result = await response.json();
-
-    // If the highest confidence score is related to business topics, return "relevant"
-    return (result.scores && result.scores[0] > 0.4 && 
-            ["business", "finance", "economy", "earnings", "stock"].includes(result.labels[0])) 
-            ? "Yes, it is relevant" : "No, it is not relevant";
+    return response.data.map(({ labels, scores }) => 
+      labels[0] === "unrelated" || scores[0] <= 0.4 ? "No, it is not relevant" : "Yes, it is relevant"
+    );
   } catch (error) {
-    console.error("Error checking relevance:", error);
-    return "Error: Unable to check relevance";
+    console.error("Error checking relevance:", error.response?.data || error.message);
+    return Array(texts.length).fill("Error: Unable to check relevance");
   }
 }
 
-
-
-// --- API endpoint ---
+// --- API endpoint --- 
 app.get("/crawl_news", async (req, res) => {
   const brand = req.query.brand;
   if (!brand) return res.status(400).json({ error: "Missing brand query" });
@@ -134,23 +129,35 @@ app.get("/crawl_news", async (req, res) => {
   try {
     const links = await searchGoogleNews(brand);
     const articles = [];
-
-    for (const link of links) {
+    const articlePromises = links.map(async (link) => {
       const article = await scrapeArticle(link);
       if (article) {
-        article.relevance = await checkRelevance(article.content, brand);
-        articles.push(article);
+        return article; // Returning the article for now
       }
-    }
+      return null;
+    });
 
-    const result = { brand, articles };
+    const articlesFetched = await Promise.all(articlePromises);
+    const filteredArticles = articlesFetched.filter((article) => article !== null);
+
+    const texts = filteredArticles.map(article => article.content);
+    const relevanceResults = await checkRelevanceBatch(texts);
+
+    // Assign relevance results to articles
+    filteredArticles.forEach((article, idx) => {
+      article.relevance = relevanceResults[idx];
+    });
+
+    const result = { brand, articles: filteredArticles };
     saveToCache(cacheKey, result);
     res.json(result);
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`📰 Crawler API running at http://localhost:${PORT}/crawl_news?brand=YourFranchise`);
